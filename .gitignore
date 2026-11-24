@@ -1,6 +1,6 @@
 api/api
 racing/racing
-.DS_STORE
+.DS_Store
 *.out
 .idea
 .vscode
