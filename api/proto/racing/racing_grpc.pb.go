@@ -18,10 +18,12 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RacingClient interface {
-	// ListRaces returns a list of all races.
+	// ListRaces returns a list of races, optionally filtered and ordered.
 	ListRaces(ctx context.Context, in *ListRacesRequest, opts ...grpc.CallOption) (*ListRacesResponse, error)
 	// GetRace returns a single race by its ID, or NOT_FOUND if no such race
-	// exists.
+	// exists. Unlike ListRaces it does not filter on visibility: it is a direct
+	// lookup by a caller that already holds the ID, and hiding a race here
+	// would make it indistinguishable from one that does not exist.
 	GetRace(ctx context.Context, in *GetRaceRequest, opts ...grpc.CallOption) (*Race, error)
 }
 
@@ -55,10 +57,12 @@ func (c *racingClient) GetRace(ctx context.Context, in *GetRaceRequest, opts ...
 // All implementations must embed UnimplementedRacingServer
 // for forward compatibility
 type RacingServer interface {
-	// ListRaces returns a list of all races.
+	// ListRaces returns a list of races, optionally filtered and ordered.
 	ListRaces(context.Context, *ListRacesRequest) (*ListRacesResponse, error)
 	// GetRace returns a single race by its ID, or NOT_FOUND if no such race
-	// exists.
+	// exists. Unlike ListRaces it does not filter on visibility: it is a direct
+	// lookup by a caller that already holds the ID, and hiding a race here
+	// would make it indistinguishable from one that does not exist.
 	GetRace(context.Context, *GetRaceRequest) (*Race, error)
 	mustEmbedUnimplementedRacingServer()
 }

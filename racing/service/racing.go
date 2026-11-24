@@ -61,6 +61,8 @@ func (s *racingService) GetRace(ctx context.Context, in *racing.GetRaceRequest) 
 		return nil, status.Error(codes.InvalidArgument, "id must be a positive integer")
 	}
 
+	// Visibility is deliberately not checked here; see GetRace in
+	// racing.proto.
 	race, err := s.racesRepo.Get(ctx, in.Id)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
