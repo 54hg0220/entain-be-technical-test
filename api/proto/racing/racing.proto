@@ -54,4 +54,16 @@ message Race {
   bool visible = 5;
   // AdvertisedStartTime is the time the race is advertised to run.
   google.protobuf.Timestamp advertised_start_time = 6;
+  // Status is derived from advertised_start_time each time a race is read;
+  // it is not stored.
+  Status status = 7;
+
+  // Status describes whether a race is still open.
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    // The race's advertised start time is still in the future.
+    OPEN = 1;
+    // The race's advertised start time has been reached or has passed.
+    CLOSED = 2;
+  }
 }
