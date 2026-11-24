@@ -18,6 +18,11 @@ service Racing {
 // Request for ListRaces call.
 message ListRacesRequest {
   ListRacesRequestFilter filter = 1;
+  // Comma separated list of fields to order by, each optionally followed by
+  // " asc" or " desc", e.g. "meeting_id, advertised_start_time desc".
+  // Supported fields: id, meeting_id, name, number, visible,
+  // advertised_start_time. Defaults to "advertised_start_time".
+  string order_by = 2;
 }
 
 // Response to ListRaces call.

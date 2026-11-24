@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"sort"
 	"testing"
 	"time"
@@ -120,7 +121,7 @@ func TestRacesRepo_List_Filter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			races, err := repo.List(tt.filter)
+			races, err := repo.List(tt.filter, "")
 			if err != nil {
 				t.Fatalf("List() error = %v", err)
 			}
@@ -133,5 +134,77 @@ func TestRacesRepo_List_Filter(t *testing.T) {
 				t.Errorf("List() ids = %v, want %v", got, tt.wantIDs)
 			}
 		})
+	}
+}
+
+func TestRacesRepo_List_Order(t *testing.T) {
+	base := time.Date(2021, 3, 2, 10, 0, 0, 0, time.UTC)
+	repo := newTestRepo(t, []testRace{
+		{id: 1, meetingID: 2, visible: true, advertisedStart: base.Add(3 * time.Hour)},
+		{id: 2, meetingID: 1, visible: true, advertisedStart: base.Add(1 * time.Hour)},
+		{id: 3, meetingID: 2, visible: false, advertisedStart: base.Add(2 * time.Hour)},
+		{id: 4, meetingID: 1, visible: true, advertisedStart: base.Add(4 * time.Hour)},
+		// Same start time as race 2, to exercise the id tie-breaker.
+		{id: 5, meetingID: 1, visible: false, advertisedStart: base.Add(1 * time.Hour)},
+	})
+
+	tests := []struct {
+		name    string
+		filter  *racing.ListRacesRequestFilter
+		orderBy string
+		wantIDs []int64
+	}{
+		{
+			name:    "defaults to advertised_start_time ascending with id tie-breaker",
+			wantIDs: []int64{2, 5, 3, 1, 4},
+		},
+		{
+			name:    "explicit ascending",
+			orderBy: "advertised_start_time asc",
+			wantIDs: []int64{2, 5, 3, 1, 4},
+		},
+		{
+			name:    "descending",
+			orderBy: "advertised_start_time desc",
+			wantIDs: []int64{4, 1, 3, 2, 5},
+		},
+		{
+			name:    "multiple fields",
+			orderBy: "meeting_id, advertised_start_time desc",
+			wantIDs: []int64{4, 2, 5, 1, 3},
+		},
+		{
+			name:    "explicit id ordering replaces the tie-breaker",
+			orderBy: "id desc",
+			wantIDs: []int64{5, 4, 3, 2, 1},
+		},
+		{
+			name:    "ordering is applied after filtering",
+			filter:  &racing.ListRacesRequestFilter{Visible: proto.Bool(true)},
+			orderBy: "advertised_start_time desc",
+			wantIDs: []int64{4, 1, 2},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			races, err := repo.List(tt.filter, tt.orderBy)
+			if err != nil {
+				t.Fatalf("List() error = %v", err)
+			}
+
+			if got := raceIDs(races); !equalIDs(got, tt.wantIDs) {
+				t.Errorf("List() ids = %v, want %v", got, tt.wantIDs)
+			}
+		})
+	}
+}
+
+func TestRacesRepo_List_InvalidOrder(t *testing.T) {
+	repo := newTestRepo(t, nil)
+
+	_, err := repo.List(nil, "advertised_start_time; DROP TABLE races")
+	if !errors.Is(err, ErrInvalidOrderBy) {
+		t.Fatalf("List() error = %v, want ErrInvalidOrderBy", err)
 	}
 }
