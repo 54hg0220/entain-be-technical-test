@@ -84,7 +84,9 @@ type ListEventsRequest struct {
 	// Comma separated list of fields to order by, each optionally followed by
 	// " asc" or " desc", e.g. "sport, advertised_start_time desc".
 	// Supported fields: id, name, sport, competition, visible,
-	// advertised_start_time. Defaults to "advertised_start_time".
+	// advertised_start_time. Defaults to "advertised_start_time". Field names
+	// are case sensitive, like every other field name in the API; "asc" and
+	// "desc" are keywords and are not.
 	OrderBy string `protobuf:"bytes,2,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
 }
 

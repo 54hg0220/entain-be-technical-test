@@ -7,7 +7,8 @@ import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
 
 service Sports {
-  // ListEvents returns a list of sports events.
+  // ListEvents returns a list of sports events, optionally filtered and
+  // ordered.
   rpc ListEvents(ListEventsRequest) returns (ListEventsResponse) {
     option (google.api.http) = { post: "/v1/list-events", body: "*" };
   }
@@ -21,7 +22,9 @@ message ListEventsRequest {
   // Comma separated list of fields to order by, each optionally followed by
   // " asc" or " desc", e.g. "sport, advertised_start_time desc".
   // Supported fields: id, name, sport, competition, visible,
-  // advertised_start_time. Defaults to "advertised_start_time".
+  // advertised_start_time. Defaults to "advertised_start_time". Field names
+  // are case sensitive, like every other field name in the API; "asc" and
+  // "desc" are keywords and are not.
   string order_by = 2;
 }
 
