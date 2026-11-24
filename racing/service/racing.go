@@ -33,7 +33,9 @@ func NewRacingService(racesRepo db.RacesRepo) Racing {
 }
 
 func (s *racingService) ListRaces(ctx context.Context, in *racing.ListRacesRequest) (*racing.ListRacesResponse, error) {
-	races, err := s.racesRepo.List(in.Filter, in.OrderBy)
+	// Pass the request context down so a cancelled or timed-out RPC also
+	// stops its database query.
+	races, err := s.racesRepo.List(ctx, in.Filter, in.OrderBy)
 	if err != nil {
 		// A bad order_by is the caller's fault, so surface it as
 		// InvalidArgument (HTTP 400 via the gateway) rather than Unknown.
@@ -59,7 +61,7 @@ func (s *racingService) GetRace(ctx context.Context, in *racing.GetRaceRequest) 
 		return nil, status.Error(codes.InvalidArgument, "id must be a positive integer")
 	}
 
-	race, err := s.racesRepo.Get(in.Id)
+	race, err := s.racesRepo.Get(ctx, in.Id)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, "race %d not found", in.Id)

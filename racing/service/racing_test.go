@@ -29,14 +29,14 @@ type fakeRacesRepo struct {
 
 func (f *fakeRacesRepo) Init() error { return nil }
 
-func (f *fakeRacesRepo) List(filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error) {
+func (f *fakeRacesRepo) List(_ context.Context, filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error) {
 	f.gotFilter = filter
 	f.gotOrderBy = orderBy
 	return f.races, f.err
 }
 
 // Get returns the first canned race, or ErrNotFound if there are none.
-func (f *fakeRacesRepo) Get(id int64) (*racing.Race, error) {
+func (f *fakeRacesRepo) Get(_ context.Context, id int64) (*racing.Race, error) {
 	f.gotID = id
 	if f.err != nil {
 		return nil, f.err

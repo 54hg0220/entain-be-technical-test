@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"strings"
@@ -20,12 +21,13 @@ type RacesRepo interface {
 
 	// List returns the races matching the filter, ordered by
 	// orderBy (see ListRacesRequest.order_by). It returns an error wrapping
-	// ErrInvalidOrderBy if orderBy is not valid.
-	List(filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error)
+	// ErrInvalidOrderBy if orderBy is not valid. The query is abandoned if
+	// ctx is cancelled.
+	List(ctx context.Context, filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error)
 
 	// Get returns the race with the given ID, or ErrNotFound if there is no
-	// such race.
-	Get(id int64) (*racing.Race, error)
+	// such race. The query is abandoned if ctx is cancelled.
+	Get(ctx context.Context, id int64) (*racing.Race, error)
 }
 
 // ErrNotFound is returned when a requested race does not exist.
@@ -53,7 +55,7 @@ func (r *racesRepo) Init() error {
 	return err
 }
 
-func (r *racesRepo) List(filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error) {
+func (r *racesRepo) List(ctx context.Context, filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error) {
 	var (
 		err   error
 		query string
@@ -72,7 +74,7 @@ func (r *racesRepo) List(filter *racing.ListRacesRequestFilter, orderBy string) 
 
 	query += orderClause
 
-	rows, err := r.db.Query(query, args...)
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -81,10 +83,10 @@ func (r *racesRepo) List(filter *racing.ListRacesRequestFilter, orderBy string) 
 	return r.scanRaces(rows)
 }
 
-func (r *racesRepo) Get(id int64) (*racing.Race, error) {
+func (r *racesRepo) Get(ctx context.Context, id int64) (*racing.Race, error) {
 	query := getRaceQueries()[racesList] + " WHERE id = ?"
 
-	rows, err := r.db.Query(query, id)
+	rows, err := r.db.QueryContext(ctx, query, id)
 	if err != nil {
 		return nil, err
 	}

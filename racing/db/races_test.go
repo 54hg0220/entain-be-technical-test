@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"sort"
@@ -121,7 +122,7 @@ func TestRacesRepo_List_Filter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			races, err := repo.List(tt.filter, "")
+			races, err := repo.List(context.Background(), tt.filter, "")
 			if err != nil {
 				t.Fatalf("List() error = %v", err)
 			}
@@ -188,7 +189,7 @@ func TestRacesRepo_List_Order(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			races, err := repo.List(tt.filter, tt.orderBy)
+			races, err := repo.List(context.Background(), tt.filter, tt.orderBy)
 			if err != nil {
 				t.Fatalf("List() error = %v", err)
 			}
@@ -203,7 +204,7 @@ func TestRacesRepo_List_Order(t *testing.T) {
 func TestRacesRepo_List_InvalidOrder(t *testing.T) {
 	repo := newTestRepo(t, nil)
 
-	_, err := repo.List(nil, "advertised_start_time; DROP TABLE races")
+	_, err := repo.List(context.Background(), nil, "advertised_start_time; DROP TABLE races")
 	if !errors.Is(err, ErrInvalidOrderBy) {
 		t.Fatalf("List() error = %v, want ErrInvalidOrderBy", err)
 	}
@@ -216,7 +217,7 @@ func TestRacesRepo_Get(t *testing.T) {
 		{id: 2, meetingID: 5, visible: false, advertisedStart: start.Add(time.Hour)},
 	})
 
-	race, err := repo.Get(2)
+	race, err := repo.Get(context.Background(), 2)
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -232,7 +233,21 @@ func TestRacesRepo_Get(t *testing.T) {
 func TestRacesRepo_Get_NotFound(t *testing.T) {
 	repo := newTestRepo(t, []testRace{{id: 1, advertisedStart: time.Now()}})
 
-	if _, err := repo.Get(99); !errors.Is(err, ErrNotFound) {
+	if _, err := repo.Get(context.Background(), 99); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Get() error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestRacesRepo_CancelledContext(t *testing.T) {
+	repo := newTestRepo(t, []testRace{{id: 1, advertisedStart: time.Now()}})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := repo.List(ctx, nil, ""); !errors.Is(err, context.Canceled) {
+		t.Errorf("List() error = %v, want context.Canceled", err)
+	}
+	if _, err := repo.Get(ctx, 1); !errors.Is(err, context.Canceled) {
+		t.Errorf("Get() error = %v, want context.Canceled", err)
 	}
 }
