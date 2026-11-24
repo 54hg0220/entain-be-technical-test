@@ -68,6 +68,32 @@ curl -X "POST" "http://localhost:8000/v1/list-races" \
 }'
 ```
 
+5. Run the tests...
+
+```bash
+cd ./racing
+
+go test ./...
+```
+
+### API Usage
+
+#### `POST /v1/list-races`
+
+Lists races. All filter fields are optional and are combined with `AND`.
+
+| Filter field  | Type      | Behaviour                                                                                   |
+|---------------|-----------|---------------------------------------------------------------------------------------------|
+| `meetingIds`  | `int64[]` | Only return races belonging to one of these meetings.                                       |
+| `visible`     | `bool`    | `true` returns only visible races, `false` only hidden ones. Omit it to return races regardless of visibility. |
+
+```bash
+# Visible races only
+curl -X "POST" "http://localhost:8000/v1/list-races" \
+     -H 'Content-Type: application/json' \
+     -d '{"filter": {"visible": true}}'
+```
+
 ### Changes/Updates Required
 
 - We'd like to see you push this repository up to **GitHub/Gitlab/Bitbucket** and lodge a **Pull/Merge Request for each** of the below tasks.

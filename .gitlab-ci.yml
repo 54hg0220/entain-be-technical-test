@@ -11,5 +11,5 @@ test:
     - (cd racing && go install ${GENERATE_DEPS})
     - (cd api && go install ${GENERATE_DEPS})
   script:
-    - "(cd racing && go generate ./... && go build)"
+    - "(cd racing && go generate ./... && go build && go test ./...)"
     - "(cd api && go generate ./... && go build)"
