@@ -90,7 +90,7 @@ Lists races. All filter fields are optional and are combined with `AND`.
 Results are ordered by `advertised_start_time` (earliest first) by default. Use `orderBy` to choose a different order:
 a comma separated list of fields, each optionally followed by `asc` (default) or `desc`, as described in
 [AIP-132](https://google.aip.dev/132#ordering). Supported fields are `id`, `meeting_id`, `name`, `number`, `visible`
-and `advertised_start_time`. Race `id` is always used as a final tie-breaker so ordering is deterministic. An
+and `advertised_start_time`. Field names are case sensitive; `asc` and `desc` are not. Race `id` is always used as a final tie-breaker so ordering is deterministic. An
 unsupported field or direction returns `400 Bad Request` (`INVALID_ARGUMENT`).
 
 ```bash
@@ -110,6 +110,18 @@ request (a race is `CLOSED` once its start time has been reached) rather than st
 
 > The bundled `racing/db/racing.db` was seeded in 2021, so every race in it is `CLOSED`. To see a mix of statuses,
 > delete that file before starting the racing service and it will be re-seeded with start times around the current time.
+
+#### `GET /v1/races/{id}`
+
+Fetches a single race by its ID, including its derived `status`. Returns `404 Not Found` (`NOT_FOUND`) if no race has
+that ID, and `400 Bad Request` (`INVALID_ARGUMENT`) if the ID is not a positive integer.
+
+Unlike `list-races`, it returns hidden races too. It is a direct lookup by a caller that already holds the ID, and
+hiding a race here would make it indistinguishable from one that does not exist.
+
+```bash
+curl "http://localhost:8000/v1/races/42"
+```
 
 ### Changes/Updates Required
 

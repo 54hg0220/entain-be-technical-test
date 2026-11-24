@@ -6,24 +6,39 @@ option go_package = "/racing";
 import "google/protobuf/timestamp.proto";
 
 service Racing {
-  // ListRaces will return a collection of all races.
+  // ListRaces returns a list of races, optionally filtered and ordered.
   rpc ListRaces(ListRacesRequest) returns (ListRacesResponse) {}
+
+  // GetRace returns a single race by its ID, or NOT_FOUND if no such race
+  // exists. Unlike ListRaces it does not filter on visibility: it is a direct
+  // lookup by a caller that already holds the ID, and hiding a race here
+  // would make it indistinguishable from one that does not exist.
+  rpc GetRace(GetRaceRequest) returns (Race) {}
 }
 
 /* Requests/Responses */
 
+// Request for ListRaces call.
 message ListRacesRequest {
   ListRacesRequestFilter filter = 1;
   // Comma separated list of fields to order by, each optionally followed by
   // " asc" or " desc", e.g. "meeting_id, advertised_start_time desc".
   // Supported fields: id, meeting_id, name, number, visible,
-  // advertised_start_time. Defaults to "advertised_start_time".
+  // advertised_start_time. Defaults to "advertised_start_time". Field names
+  // are case sensitive, like every other field name in the API; "asc" and
+  // "desc" are keywords and are not.
   string order_by = 2;
 }
 
 // Response to ListRaces call.
 message ListRacesResponse {
   repeated Race races = 1;
+}
+
+// Request for GetRace call.
+message GetRaceRequest {
+  // ID of the race to fetch.
+  int64 id = 1;
 }
 
 // Filter for listing races.

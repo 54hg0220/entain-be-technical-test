@@ -1,26 +1,37 @@
 package db
 
 import (
+	"context"
 	"database/sql"
-	"github.com/golang/protobuf/ptypes"
-	_ "github.com/mattn/go-sqlite3"
+	"errors"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
+	_ "github.com/mattn/go-sqlite3"
 
 	"git.neds.sh/matty/entain/racing/proto/racing"
 )
 
 // RacesRepo provides repository access to races.
 type RacesRepo interface {
-	// Init will initialise our races repository.
+	// Init initialises the races repository, seeding it on first use.
 	Init() error
 
 	// List returns the races matching the filter, ordered by
 	// orderBy (see ListRacesRequest.order_by). It returns an error wrapping
-	// ErrInvalidOrderBy if orderBy is not valid.
-	List(filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error)
+	// ErrInvalidOrderBy if orderBy is not valid. The query is abandoned if
+	// ctx is cancelled.
+	List(ctx context.Context, filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error)
+
+	// Get returns the race with the given ID, or ErrNotFound if there is no
+	// such race. The query is abandoned if ctx is cancelled.
+	Get(ctx context.Context, id int64) (*racing.Race, error)
 }
+
+// ErrNotFound is returned when a requested race does not exist.
+var ErrNotFound = errors.New("race not found")
 
 type racesRepo struct {
 	db   *sql.DB
@@ -44,7 +55,7 @@ func (r *racesRepo) Init() error {
 	return err
 }
 
-func (r *racesRepo) List(filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error) {
+func (r *racesRepo) List(ctx context.Context, filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error) {
 	var (
 		err   error
 		query string
@@ -63,12 +74,27 @@ func (r *racesRepo) List(filter *racing.ListRacesRequestFilter, orderBy string) 
 
 	query += orderClause
 
-	rows, err := r.db.Query(query, args...)
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return r.scanRaces(rows)
+}
+
+func (r *racesRepo) Get(ctx context.Context, id int64) (*racing.Race, error) {
+	row := r.db.QueryRowContext(ctx, getRaceQueries()[racesGet], id)
+
+	race, err := scanRace(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	return r.scanRaces(rows)
+	return race, nil
 }
 
 func (r *racesRepo) applyFilter(query string, filter *racing.ListRacesRequestFilter) (string, []interface{}) {
@@ -103,32 +129,52 @@ func (r *racesRepo) applyFilter(query string, filter *racing.ListRacesRequestFil
 	return query, args
 }
 
-func (m *racesRepo) scanRaces(
+func (r *racesRepo) scanRaces(
 	rows *sql.Rows,
 ) ([]*racing.Race, error) {
 	var races []*racing.Race
 
 	for rows.Next() {
-		var race racing.Race
-		var advertisedStart time.Time
-
-		if err := rows.Scan(&race.Id, &race.MeetingId, &race.Name, &race.Number, &race.Visible, &advertisedStart); err != nil {
-			if err == sql.ErrNoRows {
-				return nil, nil
-			}
-
-			return nil, err
-		}
-
-		ts, err := ptypes.TimestampProto(advertisedStart)
+		race, err := scanRace(rows)
 		if err != nil {
 			return nil, err
 		}
 
-		race.AdvertisedStartTime = ts
+		races = append(races, race)
+	}
 
-		races = append(races, &race)
+	// rows.Next returns false on iteration errors as well as at the end of
+	// the result set; only rows.Err tells them apart.
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return races, nil
+}
+
+// rowScanner is implemented by both *sql.Row and *sql.Rows, so scanRace can
+// read a race from either a single-row or a multi-row query.
+type rowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+// scanRace reads one race from row. The row's columns must be in the order
+// selected by the race queries. For a *sql.Row with no result, it returns
+// sql.ErrNoRows.
+func scanRace(row rowScanner) (*racing.Race, error) {
+	var race racing.Race
+	var advertisedStart time.Time
+
+	if err := row.Scan(&race.Id, &race.MeetingId, &race.Name, &race.Number, &race.Visible, &advertisedStart); err != nil {
+		return nil, err
+	}
+
+	ts, err := ptypes.TimestampProto(advertisedStart)
+	if err != nil {
+		return nil, err
+	}
+
+	race.AdvertisedStartTime = ts
+
+	return &race, nil
 }
