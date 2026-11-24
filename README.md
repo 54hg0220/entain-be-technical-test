@@ -8,6 +8,16 @@ Please treat the services provided as if they would live in a real-world environ
 
 - `api`: A basic REST gateway, forwarding requests onto service(s).
 - `racing`: A very bare-bones racing service.
+- `sports`: A sports events service, separate from racing, with its own module, database and gRPC endpoint.
+
+```
+             ┌──────────────┐  gRPC :9000  ┌──────────┐
+             │              ├─────────────▶│  racing  │──▶ racing.db
+HTTP :8000 ─▶│ api (gateway)│              └──────────┘
+             │              │  gRPC :9001  ┌──────────┐
+             │              ├─────────────▶│  sports  │──▶ sports.db
+             └──────────────┘              └──────────┘
+```
 
 ```
 entain/
@@ -15,6 +25,11 @@ entain/
 │  ├─ proto/
 │  ├─ main.go
 ├─ racing/
+│  ├─ db/
+│  ├─ proto/
+│  ├─ service/
+│  ├─ main.go
+├─ sports/
 │  ├─ db/
 │  ├─ proto/
 │  ├─ service/
@@ -49,7 +64,16 @@ go build && ./racing
 ➜ INFO[0000] gRPC server listening on: localhost:9000
 ```
 
-3. In another terminal window, start our api service...
+3. In another terminal window, start our sports service...
+
+```bash
+cd ./sports
+
+go build && ./sports
+➜ INFO[0000] gRPC server listening on: localhost:9001
+```
+
+4. In another terminal window, start our api service...
 
 ```bash
 cd ./api
@@ -58,7 +82,10 @@ go build && ./api
 ➜ INFO[0000] API server listening on: localhost:8000
 ```
 
-4. Make a request for races... 
+Endpoints can be changed with `-api-endpoint`, `-grpc-endpoint` (racing) and `-sports-grpc-endpoint` flags on the
+api, and `-grpc-endpoint` on each service.
+
+5. Make a request for races... 
 
 ```bash
 curl -X "POST" "http://localhost:8000/v1/list-races" \
@@ -68,12 +95,11 @@ curl -X "POST" "http://localhost:8000/v1/list-races" \
 }'
 ```
 
-5. Run the tests...
+6. Run the tests...
 
 ```bash
-cd ./racing
-
-go test ./...
+(cd ./racing && go test ./...)
+(cd ./sports && go test ./...)
 ```
 
 ### API Usage
@@ -121,6 +147,27 @@ hiding a race here would make it indistinguishable from one that does not exist.
 
 ```bash
 curl "http://localhost:8000/v1/races/42"
+```
+
+#### `POST /v1/list-events`
+
+Lists sports events. Each event has an `id`, `name` (e.g. `"Sydney Swans vs Geelong"`), `sport`, `competition`,
+`visible`, `advertisedStartTime` and a derived `status`, which behaves exactly like a race's.
+
+| Filter field | Type       | Behaviour                                                                                     |
+|--------------|------------|-----------------------------------------------------------------------------------------------|
+| `sports`     | `string[]` | Only return events for one of these sports (exact match, e.g. `"AFL"`, `"Soccer"`).           |
+| `visible`    | `bool`     | `true` returns only visible events, `false` only hidden ones. Omit it to return all events.  |
+
+`orderBy` works as it does for races, with supported fields `id`, `name`, `sport`, `competition`, `visible` and
+`advertised_start_time` (the default).
+
+The sports database is not committed: it is created and seeded on first start with events around the current time.
+
+```bash
+curl -X "POST" "http://localhost:8000/v1/list-events" \
+     -H 'Content-Type: application/json' \
+     -d '{"filter": {"sports": ["AFL", "Soccer"], "visible": true}, "orderBy": "advertised_start_time desc"}'
 ```
 
 ### Changes/Updates Required
