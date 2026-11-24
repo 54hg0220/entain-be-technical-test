@@ -2,25 +2,34 @@ package db
 
 import (
 	"database/sql"
-	"github.com/golang/protobuf/ptypes"
-	_ "github.com/mattn/go-sqlite3"
+	"errors"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
+	_ "github.com/mattn/go-sqlite3"
 
 	"git.neds.sh/matty/entain/racing/proto/racing"
 )
 
 // RacesRepo provides repository access to races.
 type RacesRepo interface {
-	// Init will initialise our races repository.
+	// Init initialises the races repository, seeding it on first use.
 	Init() error
 
 	// List returns the races matching the filter, ordered by
 	// orderBy (see ListRacesRequest.order_by). It returns an error wrapping
 	// ErrInvalidOrderBy if orderBy is not valid.
 	List(filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error)
+
+	// Get returns the race with the given ID, or ErrNotFound if there is no
+	// such race.
+	Get(id int64) (*racing.Race, error)
 }
+
+// ErrNotFound is returned when a requested race does not exist.
+var ErrNotFound = errors.New("race not found")
 
 type racesRepo struct {
 	db   *sql.DB
@@ -70,6 +79,29 @@ func (r *racesRepo) List(filter *racing.ListRacesRequestFilter, orderBy string) 
 	defer rows.Close()
 
 	return r.scanRaces(rows)
+}
+
+func (r *racesRepo) Get(id int64) (*racing.Race, error) {
+	query := getRaceQueries()[racesList] + " WHERE id = ?"
+
+	rows, err := r.db.Query(query, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Reuse scanRaces so a race is built identically whether it is listed or
+	// fetched on its own; id is the primary key so at most one row matches.
+	races, err := r.scanRaces(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(races) == 0 {
+		return nil, ErrNotFound
+	}
+
+	return races[0], nil
 }
 
 func (r *racesRepo) applyFilter(query string, filter *racing.ListRacesRequestFilter) (string, []interface{}) {

@@ -111,6 +111,15 @@ request (a race is `CLOSED` once its start time has been reached) rather than st
 > The bundled `racing/db/racing.db` was seeded in 2021, so every race in it is `CLOSED`. To see a mix of statuses,
 > delete that file before starting the racing service and it will be re-seeded with start times around the current time.
 
+#### `GET /v1/races/{id}`
+
+Fetches a single race by its ID, including its derived `status`. Returns `404 Not Found` (`NOT_FOUND`) if no race has
+that ID, and `400 Bad Request` (`INVALID_ARGUMENT`) if the ID is not a positive integer.
+
+```bash
+curl "http://localhost:8000/v1/races/42"
+```
+
 ### Changes/Updates Required
 
 - We'd like to see you push this repository up to **GitHub/Gitlab/Bitbucket** and lodge a **Pull/Merge Request for each** of the below tasks.

@@ -208,3 +208,31 @@ func TestRacesRepo_List_InvalidOrder(t *testing.T) {
 		t.Fatalf("List() error = %v, want ErrInvalidOrderBy", err)
 	}
 }
+
+func TestRacesRepo_Get(t *testing.T) {
+	start := time.Date(2021, 3, 2, 10, 0, 0, 0, time.UTC)
+	repo := newTestRepo(t, []testRace{
+		{id: 1, meetingID: 4, visible: true, advertisedStart: start},
+		{id: 2, meetingID: 5, visible: false, advertisedStart: start.Add(time.Hour)},
+	})
+
+	race, err := repo.Get(2)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+
+	if race.Id != 2 || race.MeetingId != 5 || race.Visible {
+		t.Errorf("Get() = %+v, want race 2 in meeting 5, not visible", race)
+	}
+	if got, want := race.AdvertisedStartTime.AsTime(), start.Add(time.Hour); !got.Equal(want) {
+		t.Errorf("Get() advertised start = %v, want %v", got, want)
+	}
+}
+
+func TestRacesRepo_Get_NotFound(t *testing.T) {
+	repo := newTestRepo(t, []testRace{{id: 1, advertisedStart: time.Now()}})
+
+	if _, err := repo.Get(99); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Get() error = %v, want ErrNotFound", err)
+	}
+}
