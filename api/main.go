@@ -24,7 +24,7 @@ func main() {
 	flag.Parse()
 
 	if err := run(); err != nil {
-		log.Printf("failed running api server: %s\n", err)
+		log.Fatalf("failed running api server: %s\n", err)
 	}
 }
 
