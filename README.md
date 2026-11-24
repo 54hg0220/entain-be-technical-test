@@ -87,11 +87,22 @@ Lists races. All filter fields are optional and are combined with `AND`.
 | `meetingIds`  | `int64[]` | Only return races belonging to one of these meetings.                                       |
 | `visible`     | `bool`    | `true` returns only visible races, `false` only hidden ones. Omit it to return races regardless of visibility. |
 
+Results are ordered by `advertised_start_time` (earliest first) by default. Use `orderBy` to choose a different order:
+a comma separated list of fields, each optionally followed by `asc` (default) or `desc`, as described in
+[AIP-132](https://google.aip.dev/132#ordering). Supported fields are `id`, `meeting_id`, `name`, `number`, `visible`
+and `advertised_start_time`. Race `id` is always used as a final tie-breaker so ordering is deterministic. An
+unsupported field or direction returns `400 Bad Request` (`INVALID_ARGUMENT`).
+
 ```bash
 # Visible races only
 curl -X "POST" "http://localhost:8000/v1/list-races" \
      -H 'Content-Type: application/json' \
      -d '{"filter": {"visible": true}}'
+
+# Races grouped by meeting, latest start first within each meeting
+curl -X "POST" "http://localhost:8000/v1/list-races" \
+     -H 'Content-Type: application/json' \
+     -d '{"filter": {}, "orderBy": "meeting_id, advertised_start_time desc"}'
 ```
 
 ### Changes/Updates Required

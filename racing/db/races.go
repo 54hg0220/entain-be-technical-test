@@ -16,8 +16,10 @@ type RacesRepo interface {
 	// Init will initialise our races repository.
 	Init() error
 
-	// List will return a list of races.
-	List(filter *racing.ListRacesRequestFilter) ([]*racing.Race, error)
+	// List returns the races matching the filter, ordered by
+	// orderBy (see ListRacesRequest.order_by). It returns an error wrapping
+	// ErrInvalidOrderBy if orderBy is not valid.
+	List(filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error)
 }
 
 type racesRepo struct {
@@ -42,16 +44,24 @@ func (r *racesRepo) Init() error {
 	return err
 }
 
-func (r *racesRepo) List(filter *racing.ListRacesRequestFilter) ([]*racing.Race, error) {
+func (r *racesRepo) List(filter *racing.ListRacesRequestFilter, orderBy string) ([]*racing.Race, error) {
 	var (
 		err   error
 		query string
 		args  []interface{}
 	)
 
+	// Validate the ordering before touching the database.
+	orderClause, err := buildOrderBy(orderBy)
+	if err != nil {
+		return nil, err
+	}
+
 	query = getRaceQueries()[racesList]
 
 	query, args = r.applyFilter(query, filter)
+
+	query += orderClause
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
