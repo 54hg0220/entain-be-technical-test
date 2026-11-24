@@ -84,26 +84,17 @@ func (r *racesRepo) List(ctx context.Context, filter *racing.ListRacesRequestFil
 }
 
 func (r *racesRepo) Get(ctx context.Context, id int64) (*racing.Race, error) {
-	query := getRaceQueries()[racesList] + " WHERE id = ?"
+	row := r.db.QueryRowContext(ctx, getRaceQueries()[racesGet], id)
 
-	rows, err := r.db.QueryContext(ctx, query, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// Reuse scanRaces so a race is built identically whether it is listed or
-	// fetched on its own; id is the primary key so at most one row matches.
-	races, err := r.scanRaces(rows)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(races) == 0 {
+	race, err := scanRace(row)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
+	if err != nil {
+		return nil, err
+	}
 
-	return races[0], nil
+	return race, nil
 }
 
 func (r *racesRepo) applyFilter(query string, filter *racing.ListRacesRequestFilter) (string, []interface{}) {
@@ -144,25 +135,12 @@ func (r *racesRepo) scanRaces(
 	var races []*racing.Race
 
 	for rows.Next() {
-		var race racing.Race
-		var advertisedStart time.Time
-
-		if err := rows.Scan(&race.Id, &race.MeetingId, &race.Name, &race.Number, &race.Visible, &advertisedStart); err != nil {
-			if err == sql.ErrNoRows {
-				return nil, nil
-			}
-
-			return nil, err
-		}
-
-		ts, err := ptypes.TimestampProto(advertisedStart)
+		race, err := scanRace(rows)
 		if err != nil {
 			return nil, err
 		}
 
-		race.AdvertisedStartTime = ts
-
-		races = append(races, &race)
+		races = append(races, race)
 	}
 
 	// rows.Next returns false on iteration errors as well as at the end of
@@ -172,4 +150,31 @@ func (r *racesRepo) scanRaces(
 	}
 
 	return races, nil
+}
+
+// rowScanner is implemented by both *sql.Row and *sql.Rows, so scanRace can
+// read a race from either a single-row or a multi-row query.
+type rowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+// scanRace reads one race from row. The row's columns must be in the order
+// selected by the race queries. For a *sql.Row with no result, it returns
+// sql.ErrNoRows.
+func scanRace(row rowScanner) (*racing.Race, error) {
+	var race racing.Race
+	var advertisedStart time.Time
+
+	if err := row.Scan(&race.Id, &race.MeetingId, &race.Name, &race.Number, &race.Visible, &advertisedStart); err != nil {
+		return nil, err
+	}
+
+	ts, err := ptypes.TimestampProto(advertisedStart)
+	if err != nil {
+		return nil, err
+	}
+
+	race.AdvertisedStartTime = ts
+
+	return &race, nil
 }
