@@ -1,5 +1,8 @@
 api/api
 racing/racing
+sports/sports
+# Seeded at startup with start times relative to now.
+sports/db/sports.db
 .DS_Store
 *.out
 .idea

@@ -1,0 +1,68 @@
+syntax = "proto3";
+package sports;
+
+option go_package = "/sports";
+
+import "google/protobuf/timestamp.proto";
+
+service Sports {
+  // ListEvents will return a collection of sports events.
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse) {}
+}
+
+/* Requests/Responses */
+
+// Request for ListEvents call.
+message ListEventsRequest {
+  ListEventsRequestFilter filter = 1;
+  // Comma separated list of fields to order by, each optionally followed by
+  // " asc" or " desc", e.g. "sport, advertised_start_time desc".
+  // Supported fields: id, name, sport, competition, visible,
+  // advertised_start_time. Defaults to "advertised_start_time".
+  string order_by = 2;
+}
+
+// Response to ListEvents call.
+message ListEventsResponse {
+  repeated Event events = 1;
+}
+
+// Filter for listing events.
+message ListEventsRequestFilter {
+  // When non-empty, only events for one of these sports are returned
+  // (exact match, e.g. "Soccer").
+  repeated string sports = 1;
+  // When set, only events whose visibility matches are returned. When unset,
+  // events are returned regardless of their visibility.
+  optional bool visible = 2;
+}
+
+/* Resources */
+
+// A sports event resource, e.g. a single match or game.
+message Event {
+  // ID represents a unique identifier for the event.
+  int64 id = 1;
+  // Name is the display name of the event, e.g. "Sydney Swans vs Geelong".
+  string name = 2;
+  // Sport is the sport being played, e.g. "AFL" or "Basketball".
+  string sport = 3;
+  // Competition is the league or tournament the event belongs to.
+  string competition = 4;
+  // Visible represents whether or not the event is visible.
+  bool visible = 5;
+  // AdvertisedStartTime is the time the event is advertised to start.
+  google.protobuf.Timestamp advertised_start_time = 6;
+  // Status is derived from advertised_start_time each time an event is read;
+  // it is not stored.
+  Status status = 7;
+
+  // Status describes whether an event is still open.
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    // The event's advertised start time is still in the future.
+    OPEN = 1;
+    // The event's advertised start time has been reached or has passed.
+    CLOSED = 2;
+  }
+}
