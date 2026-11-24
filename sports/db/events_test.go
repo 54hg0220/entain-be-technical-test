@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"sort"
@@ -108,7 +109,7 @@ func TestEventsRepo_List_Filter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			events, err := repo.List(tt.filter, "")
+			events, err := repo.List(context.Background(), tt.filter, "")
 			if err != nil {
 				t.Fatalf("List() error = %v", err)
 			}
@@ -146,7 +147,7 @@ func TestEventsRepo_List_Order(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			events, err := repo.List(nil, tt.orderBy)
+			events, err := repo.List(context.Background(), nil, tt.orderBy)
 			if err != nil {
 				t.Fatalf("List() error = %v", err)
 			}
@@ -161,7 +162,7 @@ func TestEventsRepo_List_Order(t *testing.T) {
 func TestEventsRepo_List_InvalidOrder(t *testing.T) {
 	repo := newTestRepo(t, nil)
 
-	if _, err := repo.List(nil, "meeting_id"); !errors.Is(err, ErrInvalidOrderBy) {
+	if _, err := repo.List(context.Background(), nil, "meeting_id"); !errors.Is(err, ErrInvalidOrderBy) {
 		t.Fatalf("List() error = %v, want ErrInvalidOrderBy", err)
 	}
 }
@@ -173,7 +174,7 @@ func TestEventsRepo_Init_Seeds(t *testing.T) {
 		t.Fatalf("Init() error = %v", err)
 	}
 
-	events, err := repo.List(nil, "")
+	events, err := repo.List(context.Background(), nil, "")
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
@@ -193,5 +194,16 @@ func TestEventsRepo_Init_Seeds(t *testing.T) {
 		if e.Name == "" || e.AdvertisedStartTime == nil {
 			t.Errorf("event %d is missing a name or start time: %+v", e.Id, e)
 		}
+	}
+}
+
+func TestEventsRepo_List_CancelledContext(t *testing.T) {
+	repo := newTestRepo(t, []testEvent{{id: 1, sport: "AFL", advertisedStart: time.Now()}})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := repo.List(ctx, nil, ""); !errors.Is(err, context.Canceled) {
+		t.Errorf("List() error = %v, want context.Canceled", err)
 	}
 }

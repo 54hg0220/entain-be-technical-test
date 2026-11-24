@@ -31,7 +31,9 @@ func NewSportsService(eventsRepo db.EventsRepo) Sports {
 }
 
 func (s *sportsService) ListEvents(ctx context.Context, in *sports.ListEventsRequest) (*sports.ListEventsResponse, error) {
-	events, err := s.eventsRepo.List(in.Filter, in.OrderBy)
+	// Pass the request context down so a cancelled or timed-out RPC also
+	// stops its database query.
+	events, err := s.eventsRepo.List(ctx, in.Filter, in.OrderBy)
 	if err != nil {
 		// A bad order_by is the caller's fault, so surface it as
 		// InvalidArgument (HTTP 400 via the gateway) rather than Unknown.

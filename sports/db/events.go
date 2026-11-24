@@ -2,6 +2,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"strings"
 	"sync"
@@ -20,8 +21,9 @@ type EventsRepo interface {
 
 	// List returns the events matching the filter, ordered by
 	// orderBy (see ListEventsRequest.order_by). It returns an error wrapping
-	// ErrInvalidOrderBy if orderBy is not valid.
-	List(filter *sports.ListEventsRequestFilter, orderBy string) ([]*sports.Event, error)
+	// ErrInvalidOrderBy if orderBy is not valid. The query is abandoned if
+	// ctx is cancelled.
+	List(ctx context.Context, filter *sports.ListEventsRequestFilter, orderBy string) ([]*sports.Event, error)
 }
 
 type eventsRepo struct {
@@ -46,7 +48,7 @@ func (r *eventsRepo) Init() error {
 	return err
 }
 
-func (r *eventsRepo) List(filter *sports.ListEventsRequestFilter, orderBy string) ([]*sports.Event, error) {
+func (r *eventsRepo) List(ctx context.Context, filter *sports.ListEventsRequestFilter, orderBy string) ([]*sports.Event, error) {
 	// Validate the ordering before touching the database.
 	orderClause, err := buildOrderBy(orderBy)
 	if err != nil {
@@ -59,7 +61,7 @@ func (r *eventsRepo) List(filter *sports.ListEventsRequestFilter, orderBy string
 
 	query += orderClause
 
-	rows, err := r.db.Query(query, args...)
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

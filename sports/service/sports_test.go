@@ -28,7 +28,7 @@ type fakeEventsRepo struct {
 
 func (f *fakeEventsRepo) Init() error { return nil }
 
-func (f *fakeEventsRepo) List(filter *sports.ListEventsRequestFilter, orderBy string) ([]*sports.Event, error) {
+func (f *fakeEventsRepo) List(_ context.Context, filter *sports.ListEventsRequestFilter, orderBy string) ([]*sports.Event, error) {
 	f.gotFilter = filter
 	f.gotOrderBy = orderBy
 	return f.events, f.err
