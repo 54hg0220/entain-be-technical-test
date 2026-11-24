@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"git.neds.sh/matty/entain/racing/db"
 	"git.neds.sh/matty/entain/racing/proto/racing"
@@ -84,5 +86,50 @@ func TestRacingService_ListRaces_Errors(t *testing.T) {
 				t.Errorf("ListRaces() code = %v, want %v (err: %v)", got, tt.wantCode, err)
 			}
 		})
+	}
+}
+
+func TestRaceStatus(t *testing.T) {
+	now := time.Date(2021, 3, 2, 10, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name  string
+		start *timestamppb.Timestamp
+		want  racing.Race_Status
+	}{
+		{name: "start in the future is open", start: timestamppb.New(now.Add(time.Second)), want: racing.Race_OPEN},
+		{name: "start in the past is closed", start: timestamppb.New(now.Add(-time.Second)), want: racing.Race_CLOSED},
+		{name: "start exactly now is closed", start: timestamppb.New(now), want: racing.Race_CLOSED},
+		{name: "missing start time is unspecified", start: nil, want: racing.Race_STATUS_UNSPECIFIED},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := raceStatus(&racing.Race{AdvertisedStartTime: tt.start}, now)
+			if got != tt.want {
+				t.Errorf("raceStatus() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRacingService_ListRaces_Status(t *testing.T) {
+	now := time.Date(2021, 3, 2, 10, 0, 0, 0, time.UTC)
+	repo := &fakeRacesRepo{races: []*racing.Race{
+		{Id: 1, AdvertisedStartTime: timestamppb.New(now.Add(-time.Hour))},
+		{Id: 2, AdvertisedStartTime: timestamppb.New(now.Add(time.Hour))},
+	}}
+	svc := &racingService{racesRepo: repo, now: func() time.Time { return now }}
+
+	resp, err := svc.ListRaces(context.Background(), &racing.ListRacesRequest{})
+	if err != nil {
+		t.Fatalf("ListRaces() error = %v", err)
+	}
+
+	want := map[int64]racing.Race_Status{1: racing.Race_CLOSED, 2: racing.Race_OPEN}
+	for _, race := range resp.Races {
+		if race.Status != want[race.Id] {
+			t.Errorf("race %d status = %v, want %v", race.Id, race.Status, want[race.Id])
+		}
 	}
 }

@@ -105,6 +105,12 @@ curl -X "POST" "http://localhost:8000/v1/list-races" \
      -d '{"filter": {}, "orderBy": "meeting_id, advertised_start_time desc"}'
 ```
 
+Each race includes a `status` of `OPEN` or `CLOSED`. It is derived from `advertisedStartTime` at the time of the
+request (a race is `CLOSED` once its start time has been reached) rather than stored, so it never goes stale.
+
+> The bundled `racing/db/racing.db` was seeded in 2021, so every race in it is `CLOSED`. To see a mix of statuses,
+> delete that file before starting the racing service and it will be re-seeded with start times around the current time.
+
 ### Changes/Updates Required
 
 - We'd like to see you push this repository up to **GitHub/Gitlab/Bitbucket** and lodge a **Pull/Merge Request for each** of the below tasks.
