@@ -67,6 +67,7 @@ func (r *racesRepo) List(filter *racing.ListRacesRequestFilter, orderBy string) 
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	return r.scanRaces(rows)
 }
@@ -103,7 +104,7 @@ func (r *racesRepo) applyFilter(query string, filter *racing.ListRacesRequestFil
 	return query, args
 }
 
-func (m *racesRepo) scanRaces(
+func (r *racesRepo) scanRaces(
 	rows *sql.Rows,
 ) ([]*racing.Race, error) {
 	var races []*racing.Race
@@ -128,6 +129,12 @@ func (m *racesRepo) scanRaces(
 		race.AdvertisedStartTime = ts
 
 		races = append(races, &race)
+	}
+
+	// rows.Next returns false on iteration errors as well as at the end of
+	// the result set; only rows.Err tells them apart.
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return races, nil
